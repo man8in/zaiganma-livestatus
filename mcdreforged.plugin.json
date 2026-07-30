@@ -9,6 +9,6 @@
     "author": "man8in",
     "link": "https://github.com/man8in/zaiganma-livestatus",
     "dependencies": {
-        "mcdreforged": ">=2.0.0"
+        "mcdreforged": ">=2.13.0"
     }
 }
