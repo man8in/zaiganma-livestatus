@@ -66,7 +66,7 @@ Also supports hex colors like `#FF6B6B`.
 
 |Dependency|Version|Required|
 |---|---|---|
-|MCDR|>= 2.0.0|✅ Yes|
+|MCDR|>= 2.13.0|✅ Yes|
 |Minecraft Data API|*|❌ Optional|
 
 ## License
