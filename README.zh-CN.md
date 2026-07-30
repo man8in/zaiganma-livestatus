@@ -30,7 +30,7 @@
 |`!!zgm set <文字>`|设置状态|
 |`!!zgm clear`|清除状态|
 |`!!zgm color <颜色>`|设置状态颜色|
-|`!!zgm color list`|查看可用颜色|
+|`!!zgm clib`|查看可用颜色|
 |`!!zgm lib`|查看状态库（点击使用）|
 |`!!zgm lib add <文字>`|添加状态到库|
 |`!!zgm lib remove <文字>`|从库删除状态|
