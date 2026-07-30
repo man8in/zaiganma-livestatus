@@ -30,7 +30,7 @@ Alternatively, download the `.mcdr` file from the [Releases page](https://github
 |`!!zgm set <text>`|Set your status|
 |`!!zgm clear`|Clear your status|
 |`!!zgm color <color>`|Set status color|
-|`!!zgm color list`|View available colors|
+|`!!zgm clib`|View available colors|
 |`!!zgm lib`|View status library (click to use)|
 |`!!zgm lib add <text>`|Add status to library|
 |`!!zgm lib remove <text>`|Remove status from library|
