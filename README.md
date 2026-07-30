@@ -41,7 +41,7 @@ Alternatively, download the `.mcdr` file from the [Releases page](https://github
 |`!!zgm chat on/off`|Toggle chat prefix|
 
 > [!TIP]
-> Click any status in `!!zgm lib` to fill the command into your chat bar, then press Enter to confirm.
+> Click any status in `!!zgm lib` `!!zgm clib` `!!zgm suggest` to fill the command into your chat bar, then press Enter to confirm.
 
 ## Configuration
 
