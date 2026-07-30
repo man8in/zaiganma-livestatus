@@ -41,7 +41,7 @@
 |`!!zgm chat on/off`|開關聊天前綴|
 
 > [!TIP]
-> 在 `!!zgm lib` 中點擊狀態可自動填入指令，按 Enter 確認即可。
+> 在 `!!zgm lib` `!!zgm clib` `!!zgm suggest` 中點擊狀態可自動填入指令，按 Enter 確認即可。
 
 ## 設定說明
 
