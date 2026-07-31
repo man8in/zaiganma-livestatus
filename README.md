@@ -9,7 +9,7 @@
 </div>
 
 > [!NOTE]
-> **ZaiGanMa (LiveStatus)** is a lightweight MCDR plugin that displays real-time player status in the TAB list and chat box. Based on Minecraft's native Team mechanism.
+> **ZaiGanMa (LiveStatus)** is a lightweight MCDR plugin that allows players to set their own status tags and display them in the chat box and TAB list. Based on Minecraft's native Team mechanism, it is fully compatible with Chat Head.
 
 ## Installation
 

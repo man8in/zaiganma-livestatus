@@ -9,7 +9,7 @@
 </div>
 
 > [!NOTE]
-> **ZaiGanMa (LiveStatus)** 是一款轻量级 MCDR 插件，在 TAB 列表和聊天框中实时显示玩家状态。基于 Minecraft 原版 Team 机制。
+> **ZaiGanMa (LiveStatus)** 是一款轻量级 MCDR 插件，允许玩家设置自己的状态标签，并显示在聊天框和 TAB 列表中。基于 Minecraft 原版 Team 机制，完美兼容 Chat Head。
 
 ## 安装
 
