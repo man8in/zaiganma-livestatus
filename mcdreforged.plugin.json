@@ -3,12 +3,13 @@
     "version": "1.0.0",
     "name": "ZaiGanMa (LiveStatus)",
     "description":{
-        "zh_cn": "在 TAB 列表和聊天框中实时显示玩家当前行为状态",
-        "en_us": "Display the current behavior status of players in the TAB list and chat box in real time"
+        "zh_cn": "允许玩家设置自己的状态标签，并显示在聊天框和 TAB 列表中",
+        "zh-tw": "允許玩家設定自己的狀態標籤，並顯示在聊天框和 TAB 列表中",
+        "en_us": "Allows players to set their own status tags and display them in the chat box and TAB list"
     },
     "author": "man8in",
     "link": "https://github.com/man8in/zaiganma-livestatus",
     "dependencies": {
-        "mcdreforged": ">=2.13.0"
+        "mcdreforged": ">=2.0.0"
     }
 }
