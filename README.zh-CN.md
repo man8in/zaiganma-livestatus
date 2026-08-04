@@ -9,7 +9,7 @@
 </div>
 
 > [!NOTE]
-> **ZaiGanMa (LiveStatus)** 是一款轻量级 MCDR 插件，允许玩家设置自己的状态标签，并显示在聊天框和 TAB 列表中。基于 Minecraft 原版 Team 机制，完美兼容 Chat Head。
+> **ZaiGanMa (LiveStatus)** 是一款轻量级 MCDR 插件，允许玩家设置自己的状态标签，并显示在聊天框和 TAB 列表中。基于 Minecraft 原版 Team 机制。
 
 ## 安装
 
@@ -35,13 +35,12 @@
 |`!!zgm lib add <文字>`|添加状态到库|
 |`!!zgm lib remove <文字>`|从库删除状态|
 |`!!zgm lib reload`|从文件重载状态库|
-|`!!zgm lib reset`|重置状态库为默认|
+|`!!zgm lib reset`|重置状态库为默认（仅限管理员）|
 |`!!zgm suggest`|随机推荐状态|
-|`!!zgm chat`|查看聊天前缀状态|
-|`!!zgm chat on/off`|开关聊天前缀|
+|`!!zgm config`|查看配置面板（仅限管理员）|
 
 > [!TIP]
-> 在 `!!zgm lib` `!!zgm clib` `!!zgm suggest` 中点击状态可自动填入指令，按回车确认即可。
+> 在 `!!zgm lib` `!!zgm clib` `!!zgm suggest` `!!zgm config` 中点击状态可自动填入指令，按回车确认即可。
 
 ## 配置说明
 
@@ -49,11 +48,11 @@
 
 |配置项|类型|默认值|说明|
 |---|---|---|---|
-|`show_in_tab`|`boolean`|`true`|TAB 列表显示状态|
-|`show_in_chat`|`boolean`|`true`|聊天前缀显示状态|
+|`show_status`|`boolean`|`true`|状态显示总开关|
 |`max_length`|`integer`|`8`|状态最大字数|
 |`allow_color`|`boolean`|`true`|允许自定义颜色|
 |`manual_status_timeout`|`integer`|`180`|手动状态超时（分钟）|
+|`library_entry_max_length`|`integer`|`8`|状态最大字数|
 |`lib_reload_permission_level`|`integer`|`3`|重载/重置所需权限等级|
 
 ### 支持的颜色
