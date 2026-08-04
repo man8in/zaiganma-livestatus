@@ -1,6 +1,6 @@
 {
     "id": "zaiganma_livestatus",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "name": "ZaiGanMa (LiveStatus)",
     "description":{
         "zh_cn": "允许玩家设置自己的状态标签，并显示在聊天框和 TAB 列表中",
