@@ -9,6 +9,25 @@ from mcdreforged.api.all import *
 from mcdreforged.api.types import PluginServerInterface, Info, CommandSource
 from mcdreforged.minecraft.rtext.click_event import RClickAction
 from mcdreforged.handler.impl import VanillaHandler
+from mcdreforged.info_reactor.info_filter import InfoFilter
+from mcdreforged.info_reactor.info import InfoActionFlag
+
+class TeamMessageFilter(InfoFilter):
+    def filter_server_info(self, info: 'Info') -> bool:
+        content = info.content
+        if info.is_player:
+            return True
+        team_patterns = [
+            r'Removed team \[.*?\]',
+            r'Created team \[.*?\]',
+            r'Team prefix set to .*',
+            r'Added .* to team \[.*?\]',
+        ]
+        for pattern in team_patterns:
+            if re.search(pattern, content):
+                info.action_flag = InfoActionFlag.discarded()
+                return False
+        return True
 
 class ZaiGanMaHandler(VanillaHandler):
     def get_name(self) -> str:
@@ -32,7 +51,7 @@ class ZaiGanMaHandler(VanillaHandler):
         return info
 
 PLUGIN_METADATA = {
-    'version': '1.0.0',                    
+    'version': '1.0.1',                    
     'name': 'ZaiGanMa (LiveStatus)',       
     'dependencies': {'minecraft_data_api': '*'},
     'description': '实时显示玩家当前行为状态'
@@ -42,21 +61,15 @@ CONFIG_FILE = None
 DATA_FILE = None
 LIBRARY_FILE = None
 
-
 DEFAULT_CONFIG = {
-   
-    "show_in_tab": True,           # True=在TAB列表显示状态，False=不显示
-    "show_in_chat": True,          # True=在聊天前缀显示状态，False=不显示
-    "chat_prefix_style": "text",   # 聊天前缀显示样式: "text"(图标) / "text"(文字) / "both"(图标+文字)
-    "allow_player_toggle_chat": True,  # 是否允许玩家用指令开关自己的聊天前缀
-
-    "default_status": "在线",      # 当无法检测到任何行为时，显示这个文字
-    "max_length": 8,              # 手动设置状态的最大字数限制
+    "show_status": True,
+    "chat_prefix_style": "text",
+    "default_status": "在线",      
+    "max_length": 8,              
     "allow_color": True,
-    "manual_status_timeout": 180,  # 手动状态超时时间（分钟），0=永久
-    "library_entry_max_length": 8,  # 状态库中每个条目的最大长度（超过会被截断）
+    "manual_status_timeout": 180,  
+    "library_entry_max_length": 8,  
     "lib_reset_permission_level": 3,
-
     "color_name_to_code": {
         "black": "§0", "dark_blue": "§1", "dark_green": "§2",
         "dark_aqua": "§3", "dark_red": "§4", "dark_purple": "§5",
@@ -248,6 +261,8 @@ def hex_to_minecraft_color(hex_color: str) -> str:
         return "§f"
 
 def get_chat_prefix(player):
+    if not config.get("show_status", True):
+        return ""
     status = get_player_status(player)
     if not isinstance(status, dict):
         return "未知"
@@ -261,7 +276,9 @@ def on_player_joined(server: PluginServerInterface, player: str, info: Info):
     data = get_player_status(player)
     state = data.get("manual_text", "").strip()
     if state:
-        apply_state_team(server, player, state)  
+        apply_state_team(server, player, state)
+    elif state and not config.get("show_status", True):
+        remove_state_team(server, player)  
 
 def on_player_left(server: PluginServerInterface, player: str):
     pass
@@ -271,14 +288,14 @@ def set_state(self, player: str, state: str) -> None:
     self._create_state_team(player, state)
     self._join_state_team(player)
 
-def on_tab_list(server: PluginServerInterface) -> Dict[str, str]:
-    if not config.get("show_in_tab", True):
+def status_list(server: PluginServerInterface) -> Dict[str, str]:
+    if not config.get("show_status", True) or not config.get("show_in_tab", True):
         return {}
     result = {}
     try:
         minecraft_data_api = server.get_plugin_instance('minecraft_data_api')
         for player in minecraft_data_api.get_server_player_list():
-            text,color = get_display_status(player)
+            text, color = get_display_status(player)
             if text:
                 result[player] = f"{color}{text} {player}"
             else:
@@ -286,7 +303,6 @@ def on_tab_list(server: PluginServerInterface) -> Dict[str, str]:
     except:
         pass
     return result
-
 
 def register_commands(server: PluginServerInterface):
     base_node = Literal("!!zgm")
@@ -330,14 +346,6 @@ def register_commands(server: PluginServerInterface):
         ).then(
         Literal("sug").runs(lambda src: suggest_status(src))
     )
-    # --- 子指令：!!zgm chat [on/off] ---
-    base_node.then(
-        Literal("chat").runs(lambda src: toggle_chat_status(src, None)).then(
-            Literal("on").runs(lambda src: toggle_chat_status(src, True))
-        ).then(
-            Literal("off").runs(lambda src: toggle_chat_status(src, False))
-        )
-    )
     # --- 子指令：!!zgm lib ---
     base_node.then(
         Literal("lib").runs(lambda src: show_library(src)).then(
@@ -358,7 +366,56 @@ def register_commands(server: PluginServerInterface):
             Literal("reload").runs(lambda src, ctx: reload_library(src))
         )
     )
-
+    # --- 子指令：!!zgm config ---
+    base_node.then(
+        Literal("config").runs(lambda src: show_config_panel(src)).then(
+            Literal("panel").runs(lambda src: show_config_panel(src))
+        ).then(
+            Literal("show_status").then(
+                Literal("true").runs(lambda src: set_config_bool(src, "show_status", True))
+            ).then(
+                Literal("false").runs(lambda src: set_config_bool(src, "show_status", False))
+            )
+        ).then(
+            Literal("allow_player_toggle_chat").then(
+                Literal("true").runs(lambda src: set_config_bool(src, "allow_player_toggle_chat", True))
+            ).then(
+                Literal("false").runs(lambda src: set_config_bool(src, "allow_player_toggle_chat", False))
+            )
+        ).then(
+            Literal("allow_color").then(
+                Literal("true").runs(lambda src: set_config_bool(src, "allow_color", True))
+            ).then(
+                Literal("false").runs(lambda src: set_config_bool(src, "allow_color", False))
+            )
+        ).then(
+            # 字符串配置
+            Literal("chat_prefix_style").then(
+            Text("value").runs(lambda src, ctx: set_config_str(src, "chat_prefix_style", ctx["value"]))
+            )
+        ).then(
+            Literal("default_status").then(
+                GreedyText("value").runs(lambda src, ctx: set_config_str(src, "default_status", ctx["value"]))
+            )
+        ).then(
+            # 整数配置
+            Literal("max_length").then(
+                Integer("value").runs(lambda src, ctx: set_config_int(src, "max_length", ctx["value"]))
+            )
+        ).then(
+            Literal("manual_status_timeout").then(
+                Integer("value").runs(lambda src, ctx: set_config_int(src, "manual_status_timeout", ctx["value"]))
+            )
+        ).then(
+            Literal("library_entry_max_length").then(
+                Integer("value").runs(lambda src, ctx: set_config_int(src, "library_entry_max_length", ctx["value"]))
+            )
+        ).then(
+            Literal("lib_reload_permission_level").then(
+                Integer("value").runs(lambda src, ctx: set_config_int(src, "lib_reload_permission_level", ctx["value"]))
+            )
+        )
+    )
     server.register_command(base_node)
 
 
@@ -406,32 +463,100 @@ def show_help(src: CommandSource):
     cmd12 += RText("  §f随机推荐状态")
     src.reply(cmd12)
     src.reply("§7")
-    src.reply("§6【设置】")
-    cmd13 = RText("  !!zgm chat").set_click_event(RClickAction.suggest_command, "!!zgm chat")
-    cmd13 += RText("  §f查看聊天前缀状态")
+    src.reply("§6【管理员设置】")
+    cmd13 = RText("  !!zgm config").set_click_event(RClickAction.suggest_command, "!!zgm config")
+    cmd13 += RText("  §f查看配置面板）")
     src.reply(cmd13)
-    cmd14 = RText("  !!zgm chat on").set_click_event(RClickAction.suggest_command, "!!zgm chat on")
-    cmd14 += RText("  §f开启聊天前缀")
-    src.reply(cmd14)
-    cmd15 = RText("  !!zgm chat off").set_click_event(RClickAction.suggest_command, "!!zgm chat off")
-    cmd15 += RText("  §f关闭聊天前缀")
-    src.reply(cmd15)
-    src.reply("§7")
+
     src.reply("§6====================================§r")
 
+def show_config_panel(src: CommandSource):
+    """显示完整配置面板（可点击调整）"""
+    if src.is_player and src.get_permission_level() < 3:
+        src.reply("§c你没有权限执行此操作（需要管理员权限）")
+        return
+
+    is_player = src.is_player
+
+    src.reply("§6=== §eZaiGanMa 完整设置面板 §6===§r")
+    src.reply("§7")
+
+    # 1. 状态总开关（整合了 TAB 和聊天前缀）
+    src.reply("§6【状态总开关】")
+    src.reply(f"§7当前: §f{'开启' if config.get('show_status', True) else '关闭'}")
+    if is_player:
+        line = RTextList()
+        line.append(RText("[开启] ", RColor.green).set_click_event(RClickAction.suggest_command, "!!zgm config show_status true"))
+        line.append(RText("[关闭] ", RColor.red).set_click_event(RClickAction.suggest_command, "!!zgm config show_status false"))
+        src.reply(line)
+    src.reply("§7")
+
+    #允许自定义颜色
+    src.reply("§6【允许自定义颜色】")
+    src.reply(f"§7当前: §f{'开启' if config.get('allow_color', True) else '关闭'}")
+    if is_player:
+        line = RTextList()
+        line.append(RText("[开启] ", RColor.green).set_click_event(RClickAction.suggest_command, "!!zgm config allow_color true"))
+        line.append(RText("[关闭] ", RColor.red).set_click_event(RClickAction.suggest_command, "!!zgm config allow_color false"))
+        src.reply(line)
+    src.reply("§7")
+
+    #默认状态
+    src.reply("§6【默认状态】")
+    src.reply(f"§7当前: §f{config.get('default_status', '在线')}")
+    if is_player:
+        line = RTextList()
+        line.append(RText("[点击设置] ", RColor.green).set_click_event(RClickAction.suggest_command, "!!zgm config default_status "))
+        src.reply(line)
+    src.reply("§7")
+
+    #状态最大字数
+    src.reply("§6【状态最大字数】")
+    src.reply(f"§7当前: §f{config.get('max_length', 8)} 字")
+    if is_player:
+        line = RTextList()
+        line.append(RText("[点击设置] ", RColor.green).set_click_event(RClickAction.suggest_command, "!!zgm config max_length "))
+        src.reply(line)
+    src.reply("§7")
+
+    #手动状态超时
+    src.reply("§6【手动状态超时】")
+    src.reply(f"§7当前: §f{config.get('manual_status_timeout', 180)} 分钟" + (" §7(永久)" if config.get('manual_status_timeout', 180) == 0 else ""))
+    if is_player:
+        line = RTextList()
+        line.append(RText("[点击设置] ", RColor.green).set_click_event(RClickAction.suggest_command, "!!zgm config manual_status_timeout "))
+        src.reply(line)
+    src.reply("§7")
+
+    #状态库最大字数
+    src.reply("§6【状态库最大字数】")
+    src.reply(f"§7当前: §f{config.get('library_entry_max_length', 8)} 字")
+    if is_player:
+        line = RTextList()
+        line.append(RText("[点击设置] ", RColor.green).set_click_event(RClickAction.suggest_command, "!!zgm config library_entry_max_length "))
+        src.reply(line)
+    src.reply("§7")
+
+    #重载/重置权限等级
+    src.reply("§6【重载/重置权限等级】")
+    src.reply(f"§7当前: §f{config.get('lib_reload_permission_level', 3)}")
+    if is_player:
+        line = RTextList()
+        line.append(RText("[点击设置] ", RColor.green).set_click_event(RClickAction.suggest_command, "!!zgm config lib_reload_permission_level "))
+        src.reply(line)
+    src.reply("§7")
+
+    src.reply("§7💡 点击 [点击设置] 或 [开启]/[关闭] 后，按回车确认")
+    src.reply("§6================================§r")
 
 def _get_team_name(player: str) -> str:
     clean_name = ''.join(c for c in player if c.isalnum() or c == '_')
     return f"zgm_{clean_name[:12]}"
 
-
 def _execute(server, cmd: str) -> None:
-    """执行 Minecraft 命令"""
     server.execute(cmd)
 
-
 def apply_state_team(server: PluginServerInterface, player: str, state: str) -> None:
-    """给玩家应用状态 Team（带颜色）"""
     team_name = _get_team_name(player)
     data = get_player_status(player)
     color = data.get("manual_color", "").strip()
@@ -446,7 +571,6 @@ def apply_state_team(server: PluginServerInterface, player: str, state: str) -> 
     _execute(server, f'/team modify {team_name} prefix {prefix_json}')
     _execute(server, f'/team join {team_name} {player}')
 
-
 def remove_state_team(server: PluginServerInterface, player: str) -> None:
     """移除玩家的状态 Team"""
     team_name = _get_team_name(player)
@@ -457,23 +581,16 @@ def show_self_status(src: CommandSource):
     if not src.is_player:
         src.reply("§c此指令仅限玩家使用")
         return
-    
     player = src.player
     data = get_player_status(player)
     text, color = get_display_status(player)
-    
     has_manual = bool(data.get("manual_text", "").strip())
-    chat_enabled = data.get("chat_enabled", True)
-    
     src.reply(f"§6=== §e{player} §6的状态 ===§r")
     src.reply(f"§7显示: {color}{text}§r")
     src.reply(f"§7模式: {'§a手动设置' if has_manual else '§7自动检测'}§r")
-    src.reply(f"§7聊天前缀: {'§a开启' if chat_enabled else '§c关闭'}§r")
     if has_manual and data.get("manual_color"):
         src.reply(f"§7颜色: {data['manual_color']}§r")
     
-
-
 def show_player_status(src: CommandSource, player: str):
     """处理 !!zgm get <player>"""
     if player not in status_data:
@@ -487,15 +604,17 @@ def show_player_status(src: CommandSource, player: str):
     src.reply(f"§6=== §e{player} §6的状态 ===§r")
     src.reply(f"§7显示: {color}{text}§r")
     src.reply(f"§7模式: {'§a手动设置' if has_manual else '§7自动检测'}§r")
-
     
 def set_manual_status(src: CommandSource, text: str):
     if not src.is_player:
         src.reply("§c此指令仅限玩家使用")
         return
+    if not config.get("show_status", True):
+        src.reply("§c状态显示已关闭，无法设置新状态")
+        return
     player = src.player
     text = text.strip()
-    max_len = config.get("max_length", 6)
+    max_len = config.get("max_length", 8)
     if len(text) > max_len:
         src.reply(f"§c状态文字不能超过 {max_len} 个字，当前 {len(text)} 个字")
         return
@@ -505,7 +624,6 @@ def set_manual_status(src: CommandSource, text: str):
     save_data()
     apply_state_team(src.get_server(), player, text)
     src.reply(f"§a✅ 状态已更新: [{text}]")
-
 
 def set_status_color(src: CommandSource, color: str):
     """处理 !!zgm color <color>"""
@@ -572,26 +690,6 @@ def suggest_status(src: CommandSource):
         click_text = RText(f"§f[{text}]§r")
     src.reply(click_text)
     src.reply(f"§7提示: 点击上方状态后按 Enter 确认，或输入 §6!!zgm lib §7查看全部状态")
-
-
-def toggle_chat_status(src: CommandSource, state: Optional[bool]):
-    """处理 !!zgm chat / on / off"""
-    if not src.is_player:
-        src.reply("§c此指令仅限玩家使用")
-        return
-    if not config.get("allow_player_toggle_chat", True):
-        src.reply("§c服务器已禁止玩家自行开关聊天前缀")
-        return
-    player = src.player
-    data = get_player_status(player)
-    if state is None:
-        enabled = data.get("chat_enabled", True)
-        src.reply(f"§7聊天前缀当前: {'§a开启' if enabled else '§c关闭'}§r")
-        src.reply(f"§7使用 §6!!zgm chat on/off §7来切换")
-        return
-    data["chat_enabled"] = state
-    save_data()
-    src.reply(f"§a✅ 聊天前缀已{'开启' if state else '关闭'}")
 
 def show_library(src: CommandSource):
     """显示状态库，每个状态可点击直接设置"""
@@ -738,6 +836,8 @@ def on_load(server: PluginServerInterface, old):
     register_commands(server)
     server.register_event_listener('on_player_joined', on_player_joined)
     server.register_event_listener('on_player_left', on_player_left)
+    server.register_info_filter(TeamMessageFilter())
+    server.register_event_listener('on_tab_list', status_list)
     try:
         for player in server.get_plugin_instance("minecraft_data_api").get_server_player_list():
             get_player_status(player)
@@ -749,3 +849,84 @@ def on_unload(server: PluginServerInterface):
     save_data()
     save_library()
     server.logger.info("§c[ZaiGanMa] §r插件已卸载")
+
+def set_max_length(src: CommandSource, length: int):
+    """设置状态最大字数（管理员）"""
+    if src.is_player and src.get_permission_level() < 3:
+        src.reply("§c你没有权限执行此操作（需要管理员权限）")
+        return
+    admin = src.player if src.is_player else "控制台"
+    if length < 1:
+        src.reply("§c字数不能小于 1")
+        return
+    if length > 20:
+        src.reply("§c字数不能超过 20")
+        return
+    config["max_length"] = length
+    save_config()
+    server = src.get_server()
+    server.broadcast(f"§a[ZaiGanMa] §e{admin} §a已将状态最大字数设为: {length} 字")
+    src.reply(f"§a✅ 状态最大字数已设为: {length} 字")
+
+def set_config_bool(src: CommandSource, key: str, value: bool):
+    """设置布尔值配置（管理员）"""
+    if src.is_player and src.get_permission_level() < 3:
+        src.reply("§c你没有权限执行此操作（需要管理员权限）")
+        return
+    admin = src.player if src.is_player else "控制台"
+    config[key] = value
+    save_config()
+    server = src.get_server()
+    if key == "show_status":
+        if value == False:
+            try:
+                players = list(status_data.keys())
+                for player in players:
+                    remove_state_team(server, player)
+                    data = get_player_status(player)
+                    data["manual_text"] = ""
+                    data["manual_color"] = ""
+                    save_data()
+                server.broadcast(f"§c[ZaiGanMa] §e{admin} §c关闭了状态显示，已清空所有玩家状态")
+            except Exception as e:
+                src.reply(f"§c清空状态失败: {e}")
+        else:
+            server.broadcast(f"§a[ZaiGanMa] §e{admin} §a开启了状态显示")
+    else:
+        src.reply(f"§a✅ {key} 已设为: {value}")
+
+def set_config_str(src: CommandSource, key: str, value: str):
+    """设置字符串配置（管理员）"""
+    if src.is_player and src.get_permission_level() < 3:
+        src.reply("§c你没有权限执行此操作（需要管理员权限）")
+        return
+    admin = src.player if src.is_player else "控制台"
+    config[key] = value
+    save_config()
+    server = src.get_server()
+    server.broadcast(f"§a[ZaiGanMa] §e{admin} §a已将 {key} 设为: {value}")
+    src.reply(f"§a✅ {key} 已设为: {value}")
+
+def set_config_int(src: CommandSource, key: str, value: int):
+    """设置整数配置（管理员）"""
+    if src.is_player and src.get_permission_level() < 3:
+        src.reply("§c你没有权限执行此操作（需要管理员权限）")
+        return
+    admin = src.player if src.is_player else "控制台"
+    if key == "max_length" and (value < 1 or value > 20):
+        src.reply("§c字数必须在 1-20 之间")
+        return
+    if key == "manual_status_timeout" and value < 0:
+        src.reply("§c超时时间不能为负数")
+        return
+    if key == "library_entry_max_length" and (value < 1 or value > 20):
+        src.reply("§c字数必须在 1-20 之间")
+        return
+    if key == "lib_reload_permission_level" and (value < 0 or value > 4):
+        src.reply("§c权限等级必须在 0-4 之间")
+        return
+    config[key] = value
+    save_config()
+    server = src.get_server()
+    server.broadcast(f"§a[ZaiGanMa] §e{admin} §a已将 {key} 设为: {value}")
+    src.reply(f"§a✅ {key} 已设为: {value}")
