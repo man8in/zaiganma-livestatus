@@ -51,7 +51,7 @@ class ZaiGanMaHandler(VanillaHandler):
         return info
 
 PLUGIN_METADATA = {
-    'version': '1.0.1',                    
+    'version': '1.0.2',                    
     'name': 'ZaiGanMa (LiveStatus)',       
     'dependencies': {'minecraft_data_api': '*'},
     'description': '实时显示玩家当前行为状态'
@@ -169,8 +169,6 @@ def load_library():
     if os.path.exists(LIBRARY_FILE):
         with open(LIBRARY_FILE, 'r', encoding='utf-8') as f:
             library_data = json.load(f)
-        library_data["library"] = DEFAULT_LIBRARY["library"]
-        library_data["library_entry_max_length"] = DEFAULT_LIBRARY["library_entry_max_length"]
         save_library()
     else:
         library_data = DEFAULT_LIBRARY.copy()
@@ -801,11 +799,16 @@ def reset_library(src: CommandSource):
     global library_data
     try:
         library_data = DEFAULT_LIBRARY.copy()
-        save_library()
+        with open(LIBRARY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(library_data, f, indent=4, ensure_ascii=False)
+        with open(LIBRARY_FILE, 'r', encoding='utf-8') as f:
+            library_data = json.load(f)
         src.reply("§a✅ 状态库已重置为默认值")
         src.reply(f"§7共加载 {len(library_data.get('library', []))} 条状态")
     except Exception as e:
         src.reply(f"§c重置失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 def reload_library(src: CommandSource):
     """从文件重新加载状态库（不修改文件）"""
